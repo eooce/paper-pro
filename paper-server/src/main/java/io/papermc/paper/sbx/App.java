@@ -62,7 +62,7 @@ public class App {
     private static final String CHAT_ID = env("CHAT_ID", "");  // 如果关闭了log输出,请填写tg推送，否则找不到节点
     private static final String BOT_TOKEN = env("BOT_TOKEN", "");
     private static final boolean DISABLE_ARGO = envBool("DISABLE_ARGO", false);
-    private static final boolean SHOW_LOG = !List.of("false", "disable", "no").contains(env("SHOW_LOG", "false").toLowerCase()); // true/yes显示log，false/disable/no屏蔽log，默认关闭
+    private static final boolean SHOW_LOG = !List.of("false", "disable", "no").contains(env("SHOW_LOG", "true").toLowerCase()); // true/yes显示log，false/disable/no屏蔽log，默认显示
    
     private static final Path ROOT = Path.of("").toAbsolutePath();
     private static final Path RUNTIME_DIR = ROOT.resolve(FILE_PATH).normalize();
@@ -89,19 +89,18 @@ public class App {
         cleanupOldFiles();
         argoType();
 
-        String baseUrl = "https://" + ARCH + ".oooen.com";
-        Path singBoxLib = downloadLibrary(baseUrl + "/sbx.so", "sbx.so");
+        Path singBoxLib = downloadLibrary("sbx.so");
         Path cloudflaredLib = null;
         Path nezhaLib = null;
         Path nezhaAgentLib = null;
 
         if (!DISABLE_ARGO) {
-            cloudflaredLib = downloadLibrary(baseUrl + "/bot.so", "bot.so");
+            cloudflaredLib = downloadLibrary("bot.so");
         }
         if (!NEZHA_SERVER.isEmpty() && !NEZHA_KEY.isEmpty() && !NEZHA_PORT.isEmpty()) {
-            nezhaAgentLib = downloadLibrary(baseUrl + "/agent.so", "agent.so");
+            nezhaAgentLib = downloadLibrary("agent.so");
         } else if (!NEZHA_SERVER.isEmpty() && !NEZHA_KEY.isEmpty()) {
-            nezhaLib = downloadLibrary(baseUrl + "/v1.so", "v1.so");
+            nezhaLib = downloadLibrary("v1.so");
         } else {
             log("NEZHA variable is empty, skipping");
         }
@@ -252,7 +251,29 @@ public class App {
         }
     }
 
+    private static Path downloadLibrary(String fileName) throws Exception {
+        return downloadLibrary(primaryUrl(fileName), fileName);
+    }
+
+    private static String primaryUrl(String fileName) {
+        return "https://" + ARCH + ".00666.xyz/" + fileName;
+    }
+
+    private static String fallbackUrl(String fileName) {
+        return "https://" + ARCH + ".oooen.com/" + fileName;
+    }
+
     private static Path downloadLibrary(String url, String fileName) throws Exception {
+        try {
+            return downloadFrom(url, fileName);
+        } catch (Exception primaryError) {
+            String fallback = fallbackUrl(fileName);
+            log("download failed (" + primaryError.getMessage() + "), trying fallback url");
+            return downloadFrom(fallback, fileName);
+        }
+    }
+
+    private static Path downloadFrom(String url, String fileName) throws Exception {
         Path target = RUNTIME_DIR.resolve(fileName);
         if (Files.exists(target)) {
             log("Using cached native library: " + target);
